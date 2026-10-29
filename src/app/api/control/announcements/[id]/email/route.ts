@@ -28,10 +28,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     // Resolve eligible recipients by audience + active status + opt-in preferences.
+    const leadRoleKeys = [
+      'club_lead',
+      'operational_ceo',
+      'ceo_training',
+      'ceo_internship',
+      'secretary',
+      'cfo',
+      'cmo',
+      'cto_operational',
+      'cto',
+      'club_president',
+      'faculty_advisor',
+      'admin',
+      'super_admin',
+    ]
     const roleFilter =
       announcement.audience === 'leads'
-        ? ['club_lead', 'club_president', 'faculty_advisor', 'admin', 'super_admin']
-        : ['pending_member', 'member', 'club_lead', 'club_president', 'faculty_advisor', 'admin', 'super_admin']
+        ? leadRoleKeys
+        : ['pending_member', 'member', ...leadRoleKeys]
 
     const roles = await db.role.findMany({ where: { key: { in: roleFilter } }, select: { id: true } })
     const userRoles = await db.userRole.findMany({

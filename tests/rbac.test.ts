@@ -55,13 +55,45 @@ describe('canWithGrants (deny by default)', () => {
 })
 
 describe('role catalog invariants', () => {
-  test('all eight system roles exist with the mandated keys', () => {
+  test('all system roles exist with the mandated keys', () => {
     const keys = SYSTEM_ROLES.map((r) => r.key)
     expect(keys).toEqual([
-      'visitor', 'pending_member', 'member', 'club_lead', 'club_president',
-      'faculty_advisor', 'admin', 'super_admin',
+      'visitor',
+      'pending_member',
+      'member',
+      'club_lead',
+      'operational_ceo',
+      'ceo_training',
+      'ceo_internship',
+      'secretary',
+      'cfo',
+      'cmo',
+      'cto_operational',
+      'cto',
+      'club_president',
+      'faculty_advisor',
+      'admin',
+      'super_admin',
     ])
     expect(ROLE_KEYS.superAdmin).toBe('super_admin')
+    expect(ROLE_KEYS.operationalCeo).toBe('operational_ceo')
+    expect(ROLE_KEYS.ctoOperational).toBe('cto_operational')
+  })
+  test('operational_ceo and cto_operational hold admin level permissions', () => {
+    const admin = SYSTEM_ROLES.find((r) => r.key === 'admin')!
+    const opCeo = SYSTEM_ROLES.find((r) => r.key === 'operational_ceo')!
+    const ctoOp = SYSTEM_ROLES.find((r) => r.key === 'cto_operational')!
+    expect(opCeo.permissions).toEqual(admin.permissions)
+    expect(ctoOp.permissions).toEqual(admin.permissions)
+  })
+  test('executive lead roles hold club lead permissions', () => {
+    const lead = SYSTEM_ROLES.find((r) => r.key === 'club_lead')!
+    const leadRoles = ['ceo_training', 'ceo_internship', 'secretary', 'cfo', 'cmo', 'cto']
+    for (const key of leadRoles) {
+      const r = SYSTEM_ROLES.find((role) => role.key === key)!
+      expect(r).toBeDefined()
+      expect(r.permissions).toEqual(lead.permissions)
+    }
   })
   test('visitor and pending member hold no permissions', () => {
     for (const role of SYSTEM_ROLES.filter((r) => ['visitor', 'pending_member'].includes(r.key))) {
