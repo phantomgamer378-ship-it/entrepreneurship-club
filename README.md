@@ -65,8 +65,3 @@ Next.js 16 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS 4 · 
 
 Deviations from the master prompt's Vite/Supabase stack are **deliberate and documented** in [docs/DECISIONS.md](docs/DECISIONS.md) (sandbox constraints; provider adapters keep the swap paths open).
 
-## Super Admin Control Suite (2026-06 phase)
-
-Direct member creation (invite/active), custom role bundling with Super-Admin-exclusive protections, announcement/event soft-delete & force-unpublish/cancel overrides, manual event registrant management, broadcast meetings (role / event / all-members audiences, seed profiles always excluded) with force-end, and four logged automations at `/control/automations`.
-
-Data integrity (master-prompt §25): seeded rows are tagged `isSeedData` and never render publicly or join broadcasts. Purge tooling: `bun scripts/run-purge.ts <fixtures|seed|dry>`. Integration tests: `bun run test:int` (fresh local SQLite per run, guard-enforced).
