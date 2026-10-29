@@ -1,0 +1,526 @@
+// Entrepreneurship Club Platform — Database Schema
+// SQLite (sandbox deployment target). Logical schema mirrors docs/DATABASE.md.
+// Migration path to PostgreSQL/Supabase is documented in docs/DATABASE.md §migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identity & Access ─────────────────────────────
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  passwordHash     String?
+  fullName         String
+  isActive         Boolean   @default(false) // activated via invite acceptance
+  suspendedAt      DateTime?
+  suspendedReason  String?
+  lastLoginAt      DateTime?
+  failedLoginCount Int       @default(0)
+  mustChangePassword Boolean @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  profile              Profile?
+  userRoles            UserRole[]
+  userPermissions      UserPermission[]
+  applications         MemberApplication[]
+  registrations        EventRegistration[]
+  emailPreference      EmailPreference?
+  notifications        Notification[]
+  conversationMembers  ConversationMember[]
+  messages             Message[]
+  messageReports       MessageReport[]
+  hostedRooms          VideoRoom[]
+  roomMemberships      VideoRoomMember[]
+  audits               AuditLog[]
+  resetTokens          PasswordResetToken[]
+  announcementRecips   AnnouncementRecipient[]
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username     String   @unique // stored lowercase; case-insensitive uniqueness enforced in app layer + unique index
+  displayName  String
+  avatarUrl    String?
+  bio          String?
+  clubRoleLabel String? // human-readable label e.g. "President"
+  linkedinUrl  String?
+  githubUrl    String?
+  websiteUrl   String?
+  achievements String? // JSON array of strings
+  isPublic     Boolean  @default(false) // approved for public directory
+  interests    String? // JSON array
+  // Section 25 seed isolation + PRD §6 member provenance:
+  isSeedData   Boolean  @default(false) // seed/demo rows never render on public pages, never join broadcasts
+  createdVia   String   @default("application") // application | admin_direct_invite | admin_direct_active
+  archivedAt   DateTime? // soft-delete for member archival (never hard delete)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  endedRooms VideoRoom[] @relation("endedBy")
+
+  @@index([isPublic])
+  @@index([isSeedData])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique // visitor | pending_member | member | club_lead | club_president | faculty_advisor | admin | super_admin | custom-*
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  key         String  @unique // e.g. applications.approve
+  description String?
+  isSystem    Boolean @default(true)
+
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  scope        String     @default("*") // "*" or resource scope e.g. "event:{id}"
+  grantedBy    String?
+  grantedAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId, scope])
+}
+
+model UserRole {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  scope     String    @default("*") // resource scope e.g. "event:cuid123"
+  assignedBy String?
+  assignedAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  @@unique([userId, roleId, scope])
+  @@index([userId])
+}
+
+model UserPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  scope        String     @default("*")
+  grantedBy    String?
+  grantedAt    DateTime   @default(now())
+  expiresAt    DateTime?
+
+  @@unique([userId, permissionId, scope])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ───────────────────────────── Membership ─────────────────────────────
+
+model MemberApplication {
+  id               String    @id @default(cuid())
+  reference        String    @unique // short public reference code
+  requestedUsername String
+  email            String
+  fullName         String
+  courseYear       String?
+  interestArea     String?
+  motivation       String
+  portfolioUrl     String?
+  linkedinUrl      String?
+  githubUrl        String?
+  status           String    @default("pending") // pending | approved | rejected | withdrawn
+  reviewNotes      String? // PRIVATE — never exposed publicly
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  applicantUserId  String? // set when invite accepted
+  applicantUser    User?     @relation(fields: [applicantUserId], references: [id], onDelete: SetNull)
+  ipHash           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  invites ClubInvite[]
+
+  @@index([status])
+  @@index([email])
+}
+
+model ClubInvite {
+  id            String    @id @default(cuid())
+  applicationId String?
+  application   MemberApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  email         String
+  tokenHash     String    @unique
+  type          String    @default("member") // member | teacher | admin
+  roleKey       String    @default("member")
+  status        String    @default("pending") // pending | accepted | expired | revoked
+  invitedBy     String?
+  sentCount     Int       @default(0)
+  lastSentAt    DateTime?
+  acceptedAt    DateTime?
+  acceptedByUserId String?
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+
+  @@index([email])
+  @@index([status])
+}
+
+// ───────────────────────────── Events & Announcements ─────────────────────────────
+
+model ClubEvent {
+  id                  String    @id @default(cuid())
+  slug                String    @unique
+  title               String
+  summary             String?
+  description         String
+  posterUrl           String?
+  gallery             String? // JSON array of urls
+  googleFormId        String? // Google Forms API form id — created via admin action (Task 25)
+  googleFormUrl       String? // responderUri to share / open
+  googleFormMapping   String? // JSON { questionItemId: 'name'|'email'|'year'|'branch'|'phone' } for response sync
+  venue               String?
+  startsAt            DateTime
+  endsAt              DateTime?
+  capacity            Int?
+  status              String    @default("draft") // draft | published | completed | cancelled | archived
+  registrationOpen    Boolean   @default(true)
+  registrationDeadline DateTime?
+  formUrl             String? // optional external registration form (e.g. Google Forms) — overrides the built-in auto form when set
+  recap               String? // outcomes / recap content
+  isPublic            Boolean   @default(true)
+  featured            Boolean   @default(false)
+  isSeedData          Boolean   @default(false) // Section 25: excluded from every public query path
+  deletedAt           DateTime? // soft delete (admin override) — record stays queryable for history
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  registrations EventRegistration[]
+
+  @@index([status, startsAt])
+  @@index([isSeedData])
+}
+
+model EventRegistration {
+  id         String    @id @default(cuid())
+  eventId    String
+  event      ClubEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  regKey     String // userId or lowercased guest email — enables single unique constraint
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestName  String?
+  guestEmail String?
+  status     String    @default("confirmed") // confirmed | cancelled | attended | no_show
+  year       String? // educational year (registration form, Task 25)
+  branch     String? // branch / programme
+  phone      String? // contact number
+  googleSyncedAt   DateTime? // last successful push to the event's Google Form
+  googleSyncError  String?   // last sync failure (retried on next registration change)
+  ipHash     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([eventId, regKey])
+  @@index([eventId])
+}
+
+model Announcement {
+  id           String    @id @default(cuid())
+  title        String
+  slug         String    @unique
+  body         String
+  category     String    @default("general") // general | event | achievement | opportunity | urgent
+  audience     String    @default("public") // public | members | leads
+  status       String    @default("draft") // draft | scheduled | published | archived
+  pinned       Boolean   @default(false)
+  publishedAt  DateTime?
+  scheduledFor DateTime?
+  isSeedData   Boolean   @default(false) // Section 25: excluded from every public query path
+  deletedAt    DateTime? // soft delete (admin override) — record stays queryable for history
+  createdById  String?
+  updatedById  String?
+  emailSentAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  recipients AnnouncementRecipient[]
+
+  @@index([status, publishedAt])
+  @@index([isSeedData])
+}
+
+model AnnouncementRecipient {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email          String
+  outboxId       String?
+  status         String       @default("queued") // queued | sent | failed | skipped
+  createdAt      DateTime     @default(now())
+
+  @@unique([announcementId, email])
+}
+
+model EmailPreference {
+  userId             String    @id
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcementEmails Boolean   @default(true)
+  eventReminders     Boolean   @default(true)
+  optedOutAt         DateTime?
+  updatedAt          DateTime  @updatedAt
+}
+
+// ───────────────────────────── Email & Notifications ─────────────────────────────
+
+model EmailOutbox {
+  id               String    @id @default(cuid())
+  idempotencyKey   String    @unique
+  category         String // application_receipt | reviewer_notification | application_decision | membership_invite | welcome | event_registration | event_reminder | announcement | membership_notice | ops_alert
+  toEmail          String
+  subject          String
+  bodyHtml         String
+  bodyText         String
+  status           String    @default("queued") // queued | sending | sent | failed | dead | cancelled
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(5)
+  nextAttemptAt    DateTime  @default(now())
+  lastError        String?
+  providerMessageId String?
+  relatedType      String?
+  relatedId        String?
+  createdAt        DateTime  @default(now())
+  sentAt           DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  deliveryLogs EmailDeliveryLog[]
+
+  @@index([status, nextAttemptAt])
+  @@index([category])
+}
+
+model EmailDeliveryLog {
+  id        String   @id @default(cuid())
+  outboxId  String
+  outbox    EmailOutbox @relation(fields: [outboxId], references: [id], onDelete: Cascade)
+  event     String // accepted | delivered | bounced | complained | opened | send_attempt | send_failed
+  payload   String? // JSON
+  occurredAt DateTime @default(now())
+
+  @@index([outboxId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // announcement | event | message | meeting | system
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ───────────────────────────── Communication ─────────────────────────────
+
+model Conversation {
+  id            String    @id @default(cuid())
+  type          String    @default("direct") // direct | group
+  name          String?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime?
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([lastMessageAt])
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memberRole     String       @default("member") // member | moderator
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id            String       @id @default(cuid())
+  conversationId String
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body          String
+  isDeleted     Boolean      @default(false)
+  editedAt      DateTime?
+  reportCount   Int          @default(0)
+  createdAt     DateTime     @default(now())
+
+  reports MessageReport[]
+
+  @@index([conversationId, createdAt])
+}
+
+model MessageReport {
+  id         String    @id @default(cuid())
+  messageId  String
+  message    Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  status     String    @default("open") // open | resolved | dismissed
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+// ───────────────────────────── Video ─────────────────────────────
+
+model VoiceChannel {
+  id        String   @id @default(cuid())
+  slug      String   @unique // provider room name (audio-first Jitsi room per channel)
+  name      String
+  topic     String? // optional description shown under the channel name
+  createdById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model VideoRoom {
+  id          String    @id @default(cuid())
+  slug        String    @unique // room identifier used by provider
+  name        String
+  hostId      String
+  host        User      @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  provider    String    @default("jitsi") // jitsi | daily
+  status      String    @default("scheduled") // scheduled | live | ended (lifecycle managed by meeting-lifecycle-sweep)
+  accessLevel String    @default("members") // members | leads | invitees
+  audienceType String   @default("direct_invite") // direct_invite | role | event | all_members (PRD §6)
+  audienceRef String? // role key or event id, depending on audienceType
+  startsAt    DateTime?
+  endsAt      DateTime?
+  expiresAt   DateTime? // expiring room access
+  endedById   String? // admin who force-ended the meeting (video.end_for_all)
+  endedBy     Profile?  @relation("endedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members VideoRoomMember[]
+
+  @@index([status, startsAt])
+  @@index([audienceType])
+}
+
+// Automation run log (PRD §9) — every scheduled job records start/completion here.
+model AutomationRun {
+  id            Int       @id @default(autoincrement())
+  jobName       String
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  status        String    @default("running") // running | success | failed
+  affectedCount Int?
+  notes         String?
+
+  @@index([jobName, startedAt])
+}
+
+model VideoRoomMember {
+  id       String    @id @default(cuid())
+  roomId   String
+  room     VideoRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String    @default("participant") // host | participant
+  invitedAt DateTime @default(now())
+  joinedAt DateTime?
+
+  @@unique([roomId, userId])
+}
+
+// ───────────────────────────── Newsletter (public subscribers) ─────────────────────────────
+
+model NewsletterSubscriber {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  unsubscribeToken String    @unique
+  isActive         Boolean   @default(true)
+  source           String    @default("public_footer")
+  subscribedAt     DateTime  @default(now())
+  unsubscribedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+// ───────────────────────────── Governance ─────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String?
+  event      String // e.g. auth.login_failed, admin.role_changed (see docs/SECURITY.md)
+  targetType String?
+  targetId   String?
+  metadata   String? // JSON — never contains secrets or message contents
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([event])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model ClubSetting {
+  key       String   @id
+  value     String // JSON
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}

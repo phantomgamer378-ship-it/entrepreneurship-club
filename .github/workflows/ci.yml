@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Least-privilege token; third-party actions pinned to SHAs in production repos.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4 # pin to full-length SHA in production
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2 # pin to full-length SHA in production
+        with:
+          bun-version: latest
+
+      - name: Install dependencies (lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Validate Prisma schema
+        run: bunx prisma validate
+
+      - name: Unit tests (RBAC, outbox state machine, rate limiter)
+        run: bun test
+        env:
+          DATABASE_URL: file:./ci.db
+
+      - name: Build
+        run: bun run build
+        env:
+          DATABASE_URL: file:./ci.db
+          SESSION_SECRET: ci-only-secret-not-used-in-production-0000000000
+
+      # Supply-chain gates — enable secret scanning + dependabot on the repo, e.g.:
+      # - name: Secret scan
+      #   uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf429074f3bb6034fb
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Dependency audit
+      #   run: bun pm audit --prod
+      #
+      # RLS/authorization + Playwright critical flows run against a preview deploy:
+      # they require a running app + browser runners (see docs/DEVOPS.md §3).

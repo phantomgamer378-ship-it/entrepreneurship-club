@@ -1,0 +1,1216 @@
+# MASTER BUILD PROMPT — ENTREPRENEURSHIP CLUB DIGITAL PLATFORM
+
+## ROLE AND ENGINEERING RESPONSIBILITY
+
+Act as a Senior Full-Stack Engineer, Software Architect, DevOps Engineer, Application Security Engineer, Database Engineer, and Technical Product Designer with extensive production engineering experience.
+
+You are responsible for designing, implementing, testing, documenting, and preparing a complete Entrepreneurship Club platform for production deployment.
+
+Do not build a collection of disconnected UI mockups. Build a coherent, modular, functional application with a working database schema, authentication, authorization, email automation, event management, messaging, video-conferencing integration, automated tests, and deployment documentation.
+
+Follow these principles:
+
+- Prefer simple, maintainable architecture over unnecessary complexity.
+- Use the least expensive managed services that satisfy the requirements.
+- Write type-safe, modular, reusable code.
+- Enforce security in the backend and database, not merely in the user interface.
+- Make all critical workflows observable and recoverable.
+- Use database migrations instead of undocumented manual schema changes.
+- Never claim a feature works unless its implementation and tests support that claim.
+- Never fabricate successful integrations, email deliveries, security checks, or deployment results.
+- Do not guarantee that the application is bug-free; systematically test and minimize defects.
+
+Your objective is to build a real digital platform for the Entrepreneurship Club at ALTA School of Technology, Ajeenkya DY Patil University, Pune.
+
+---
+
+# 1. PRODUCT VISION
+
+Build a modern, responsive, fast, professionally designed Entrepreneurship Club website and community platform.
+
+The platform must provide three distinct experiences:
+
+1. **Public website:** Visitors can discover the club, explore members and leadership, browse previous events, view public announcements, register for events, and apply for membership.
+2. **Member workspace:** Approved and authenticated users can manage their profiles, view authorized announcements, send messages, participate in group conversations, and join video meetings.
+3. **Private administration panel:** Authorized administrators and faculty users can manage applications, members, teachers, roles, permissions, events, announcements, email automation, moderation and operational settings.
+
+The landing-page visual design will be refined separately later. Build a polished initial design with reusable components and a flexible design system so that the complete visual layer can later be changed without rewriting business logic.
+
+The product must be designed to start on free tiers, with explicit resource limits and upgrade paths.
+
+## Core priorities
+
+1. Public website and content.
+2. Secure authentication and membership registration.
+3. Role-based admin panel.
+4. Event registration and management.
+5. Announcement and email automation.
+6. DevOps, testing, backups and security.
+7. Private messaging.
+8. Multi-participant video conferencing and screen sharing.
+9. Optional future machine-learning features.
+
+Do not implement machine learning merely for decoration. It is not required for the first release.
+
+---
+
+# 2. REQUIRED TECHNOLOGY STACK
+
+Use the following stack unless a documented technical incompatibility requires a change.
+
+## Frontend
+
+- React
+- TypeScript with strict type checking
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- Motion for React
+- React Router
+- TanStack Query
+- React Hook Form
+- Zod
+- Lucide React
+
+## Backend and data
+
+- Supabase PostgreSQL
+- Supabase Auth
+- Supabase Row Level Security (RLS)
+- Supabase Storage
+- Supabase Realtime
+- Supabase Edge Functions
+- Supabase Cron where appropriate
+- Supabase CLI and version-controlled SQL migrations
+
+## Hosting and integrations
+
+- Cloudflare Pages for the frontend
+- GitHub for version control
+- GitHub Actions for CI
+- Resend for transactional emails and announcement delivery
+- Daily Video SDK or Jitsi Meet for video conferencing, selected after verifying current capabilities, limits, terms and cost
+
+## Testing and security
+
+- Vitest
+- React Testing Library
+- Playwright
+- ESLint
+- Prettier
+- Dependency vulnerability scanning
+- Secret scanning
+- Appropriate static analysis
+- Automated RLS and authorization tests
+
+Avoid Redux, Express, Redis, Kafka, Kubernetes or separate microservices unless a concrete requirement demonstrates they are needed.
+
+Do not invent a custom authentication system when Supabase Auth can satisfy the requirement.
+
+Before implementing integrations, inspect current official documentation for APIs, free-tier limits, setup requirements and security recommendations.
+
+Never promise unlimited free hosting or email/video capacity.
+
+---
+
+# 3. APPLICATION ARCHITECTURE
+
+Use a modular monolith.
+
+Keep one main frontend application, one Supabase project per applicable environment, clearly separated feature modules, and server-side integrations for privileged operations.
+
+The architecture must follow this logical flow:
+
+Browser
+→ React application
+→ Supabase Auth
+→ PostgreSQL with RLS
+
+Additional services:
+
+- Supabase Storage for approved avatars and event media.
+- Supabase Realtime for authorized messaging and notifications.
+- Edge Functions for privileged operations.
+- Resend for email delivery.
+- Video provider for live audio, video, participant presence and screen sharing.
+- Cron and an email outbox worker for scheduled operations.
+
+The browser may use the Supabase publishable key and authenticated session. It must never contain a Supabase service-role secret, database password, Resend API key, or permanent video-provider secret.
+
+All sensitive operations must be validated by a trusted backend function or database authorization policy.
+
+Create and maintain these architecture documents:
+
+- `docs/REQUIREMENTS.md`
+- `docs/HLD.md`
+- `docs/LLD.md`
+- `docs/DATABASE.md`
+- `docs/SECURITY.md`
+- `docs/DEVOPS.md`
+- `docs/AUTOMATIONS.md`
+- `docs/INCIDENT_RESPONSE.md`
+- `docs/BACKUP_RECOVERY.md`
+- `docs/DEPLOYMENT.md`
+- `docs/DECISIONS.md`
+
+Update the documents whenever implementation decisions change.
+
+---
+
+# 4. SOURCE-CODE STRUCTURE
+
+Use a feature-based, maintainable structure similar to the following:
+
+```text
+entrepreneurship-club/
+├── public/
+├── src/
+│   ├── app/
+│   │   ├── router.tsx
+│   │   ├── providers.tsx
+│   │   └── query-client.ts
+│   ├── components/
+│   │   ├── ui/
+│   │   ├── layout/
+│   │   ├── navigation/
+│   │   ├── feedback/
+│   │   └── shared/
+│   ├── features/
+│   │   ├── auth/
+│   │   ├── profiles/
+│   │   ├── membership/
+│   │   ├── events/
+│   │   ├── announcements/
+│   │   ├── messaging/
+│   │   ├── video/
+│   │   └── administration/
+│   ├── pages/
+│   │   ├── public/
+│   │   ├── auth/
+│   │   ├── workspace/
+│   │   └── control/
+│   ├── services/
+│   │   ├── supabase/
+│   │   ├── email/
+│   │   └── video/
+│   ├── hooks/
+│   ├── schemas/
+│   ├── types/
+│   ├── lib/
+│   └── styles/
+├── supabase/
+│   ├── migrations/
+│   ├── functions/
+│   └── tests/
+├── e2e/
+├── docs/
+├── .github/
+│   └── workflows/
+├── .env.example
+├── .gitignore
+├── package.json
+└── README.md
+```
+
+Adapt the structure where necessary, but maintain clear separation between presentation, data access, validation, authorization and external integrations.
+
+Components must not independently reimplement privileged business logic.
+
+---
+
+# 5. PUBLIC WEBSITE
+
+Implement the following routes.
+
+## 5.1 Homepage `/`
+
+Create a polished landing page containing:
+
+- Responsive navigation bar.
+- Hero section with headline, description and calls to action.
+- Club mission and vision.
+- Club introduction and impact statistics.
+- Leadership preview.
+- Member highlights.
+- Upcoming events.
+- Past-event highlights.
+- Recent public announcements.
+- Membership call to action.
+- Public event-registration section.
+- Footer with official club information and social links.
+
+Navigation should include:
+
+Home, About Us, Team, Events, Announcements, Resources, and Join Club.
+
+The visual system should use consistent spacing, typography, colors and reusable UI primitives.
+
+Use placeholder copy where official content has not yet been supplied. Mark placeholders clearly and make the content replaceable.
+
+The landing page's layout must remain independent of the underlying database and business logic.
+
+## 5.2 Team directory `/team`
+
+Implement:
+
+- Member search.
+- Filters by role or team where appropriate.
+- Responsive member-card grid.
+- Profile photographs or avatars.
+- Unique usernames.
+- Club role labels.
+- Approved LinkedIn links.
+- Approved GitHub links.
+- Personal website and other configurable social links.
+- Pagination or efficient loading for larger directories.
+
+Do not expose private contact information or administrative permissions.
+
+## 5.3 Member profile `/members/:username`
+
+Display:
+
+- Avatar.
+- Username.
+- Approved name or public display name.
+- Club role.
+- Biography.
+- LinkedIn.
+- GitHub.
+- Personal website.
+- Selected achievements.
+- Approved public activity.
+
+Username uniqueness must be enforced by the database, including case-insensitive uniqueness.
+
+A username is a public identifier, not a replacement for an internal user ID or authentication credential.
+
+## 5.4 Events archive `/events`
+
+Implement:
+
+- Upcoming and completed event categories.
+- Search or year filtering.
+- Event cards.
+- Event detail views.
+- Posters and approved image galleries.
+- Date, time and venue.
+- Description and speakers.
+- Event outcomes and recaps.
+- Publication status.
+- Admin-controlled archiving.
+
+Past events must remain visible after the event concludes.
+
+## 5.5 Announcements `/announcements`
+
+Implement:
+
+- Published public announcements.
+- Announcement details.
+- Categories.
+- Publication dates.
+- Pinned important announcements.
+- Audience-aware visibility.
+
+Private announcements must be visible only to their authorized audience.
+
+## 5.6 Membership application `/join`
+
+Build a public membership-application form.
+
+Collect only necessary information:
+
+- Requested username.
+- Email address.
+- Name for internal review where required.
+- Course/year where appropriate.
+- Area of interest.
+- Motivation or reason for applying.
+- Optional portfolio and social links.
+
+Requirements:
+
+- Client-side validation.
+- Server-side validation.
+- Duplicate application handling.
+- Anti-spam protection.
+- Rate limiting.
+- Clear submission result and application reference.
+- Pending application status.
+- Administrator notification.
+- Teacher notification for designated reviewers.
+- Controlled approval or rejection.
+- Secure invitation after approval.
+
+A submitted application must not automatically grant member privileges.
+
+---
+
+# 6. AUTHENTICATION AND MEMBER WORKSPACE
+
+Use Supabase Auth.
+
+Implement:
+
+- `/auth/login`
+- `/auth/accept-invite`
+- `/auth/forgot-password`
+- `/workspace`
+- `/workspace/profile`
+
+Support account activation through invitations and secure session handling.
+
+Approved members receive one unique username and a profile.
+
+Pending applicants must not automatically receive full membership privileges.
+
+The member dashboard should include:
+
+- Welcome area.
+- Membership status.
+- Profile summary.
+- Latest authorized announcements.
+- Upcoming events.
+- Unread messages.
+- Meeting invitations.
+- Notifications.
+- Relevant member activity.
+
+The profile-settings page must allow users to edit only fields they are authorized to change.
+
+Use secure password recovery, email verification as appropriate, session invalidation where supported, and robust error states.
+
+Never implement custom password hashing, authentication tokens or session management when the managed authentication service already provides those capabilities.
+
+---
+
+# 7. PRIVATE ADMINISTRATION PANEL
+
+Implement a distinct private area:
+
+- `/control/sign-in`
+- `/control`
+- `/control/applications`
+- `/control/members`
+- `/control/teachers`
+- `/control/roles`
+- `/control/events`
+- `/control/announcements`
+- `/control/emails`
+- `/control/moderation`
+- `/control/audit`
+- `/control/settings`
+
+The panel must not appear in public navigation.
+
+However, hiding a route is not a security control. Every administrative operation must enforce authorization on the backend.
+
+## 7.1 Admin overview
+
+Display:
+
+- Pending applications.
+- Active members.
+- Leadership and role assignments.
+- Upcoming events.
+- Registration counts.
+- Announcement status.
+- Email delivery failures.
+- Unresolved moderation reports.
+- Relevant system-health indicators for authorized maintainers.
+
+## 7.2 Application management
+
+Authorized reviewers can:
+
+- Read pending applications.
+- Review required details.
+- Add private review notes.
+- Approve or reject applications.
+- Record the reviewer and decision time.
+- Invite approved applicants.
+- Inspect invitation status.
+- Resend eligible invitations.
+- View relevant application history.
+
+Do not expose internal review notes to applicants or public visitors.
+
+## 7.3 Member management
+
+Depending on permission, administrators can:
+
+- Invite a member or teacher.
+- Add an approved member.
+- Edit permitted member metadata.
+- Promote or demote members.
+- Grant or revoke permissions.
+- Suspend or reactivate membership access.
+- Review role history.
+- Inspect authorized public-profile data.
+
+Do not delete historical records automatically when a role changes or membership ends.
+
+## 7.4 Teacher management
+
+Implement controlled faculty invitations and teacher role assignments.
+
+Teachers should be able to review applications or perform other functions only when granted the relevant permissions.
+
+Notification recipients must be configurable and restricted to authorized accounts.
+
+## 7.5 Role and permission editor
+
+Allow authorized administrators to:
+
+- View roles and their permissions.
+- Create permitted custom roles.
+- Assign or remove roles.
+- Grant or revoke specific permissions.
+- Inspect who assigned each permission.
+- Set optional permission expiry where appropriate.
+- Review role-change history.
+
+Prevent administrators from granting themselves more authority than they possess.
+
+Only a Super Admin may manage system-wide administrative authority.
+
+Prevent removal or demotion of the last active Super Admin without a safe succession procedure.
+
+Require reauthentication and MFA where available for sensitive administrative actions.
+
+---
+
+# 8. ROLE-BASED ACCESS CONTROL
+
+Implement RBAC using database-backed records.
+
+Initial roles:
+
+- Visitor.
+- Pending Member.
+- Member.
+- Club Lead.
+- Club President.
+- Faculty Advisor.
+- Admin.
+- Super Admin.
+
+Do not rely on frontend role labels as the source of authority.
+
+Create normalized tables for roles, permissions, role assignments and optional per-user permissions.
+
+Example permission keys:
+
+```text
+dashboard.view
+
+applications.read
+applications.review
+applications.approve
+applications.reject
+
+members.read
+members.invite
+members.update
+members.suspend
+members.role.assign
+members.permissions.grant
+
+teachers.manage
+
+events.create
+events.update
+events.publish
+events.archive
+events.registrations.read
+
+announcements.create
+announcements.update
+announcements.publish
+announcements.email.send
+
+messages.use
+messages.moderate
+
+video.create
+video.moderate
+
+audit.read
+settings.manage
+```
+
+Support resource-scoped permissions.
+
+For example, an Event Lead may edit assigned events without being allowed to manage every member or teacher.
+
+Use the same central authorization model across frontend controls, Edge Functions and PostgreSQL RLS.
+
+Authorization must deny by default.
+
+Never allow a user to elevate their privileges by modifying request fields, profile metadata or frontend state.
+
+---
+
+# 9. DATABASE SCHEMA
+
+Create version-controlled migrations for the following logical tables.
+
+## Identity and access
+
+- `profiles`
+- `roles`
+- `permissions`
+- `role_permissions`
+- `user_roles`
+- `user_permissions`
+
+## Membership
+
+- `member_applications`
+- `club_invites`
+
+## Events and announcements
+
+- `club_events`
+- `event_registrations`
+- `announcements`
+- `announcement_recipients`
+- `email_preferences`
+
+## Email and notifications
+
+- `email_outbox`
+- `email_delivery_logs`
+- `notifications`
+
+## Communication
+
+- `conversations`
+- `conversation_members`
+- `messages`
+
+## Video
+
+- `video_rooms`
+- `video_room_members`
+
+## Governance
+
+- `audit_logs`
+- `club_settings`
+
+Define foreign keys, appropriate unique constraints, indexes, delete behavior, timestamps and status constraints.
+
+Important rules:
+
+- Authentication credentials belong to Supabase Auth.
+- Unique usernames are enforced by PostgreSQL.
+- Role assignments are controlled by trusted backend logic.
+- Event registrations prevent duplicate registration.
+- Private review notes stay separate from public profile data.
+- Messages are accessible only to authorized conversation participants.
+- Email jobs have unique idempotency keys.
+- Audit logs record sensitive administrative changes.
+- Object storage is protected by explicit storage policies.
+
+Generate TypeScript database types from the schema where practical.
+
+Document each table and every important access policy.
+
+---
+
+# 10. DATABASE RLS AND API SECURITY
+
+Every exposed table must have explicit authorization policies.
+
+Examples:
+
+- Users can update their own permitted profile fields.
+- Public visitors can read approved public profiles.
+- Public announcements are readable by everyone.
+- Internal announcements require the proper audience and session.
+- Only authorized reviewers can access private applications.
+- Only participants in an authorized conversation can read its messages.
+- Users cannot modify another user's registration.
+- Admin actions require the correct permission and resource scope.
+- Storage uploads must follow ownership and visibility rules.
+- Secret credentials are never exposed in frontend code.
+
+Build automated RLS tests for both successful and forbidden operations.
+
+Simulate direct requests from visitors, pending applicants, normal members, club leads, faculty reviewers, admins and Super Admins.
+
+Test privilege escalation attempts and ensure unauthorized database/API access is denied even when the frontend is bypassed.
+
+Use database functions or Edge Functions for sensitive operations that require multi-step authorization or transactional behavior.
+
+---
+
+# 11. EMAIL AUTOMATION
+
+Use Resend or another verified provider chosen after checking current pricing and setup requirements.
+
+All provider credentials remain on the backend.
+
+Implement an email outbox.
+
+Business operations must save their records before trying to deliver email.
+
+Email categories:
+
+1. Application receipt.
+2. Reviewer notification.
+3. Application approval or rejection.
+4. Membership invitation.
+5. Welcome notification.
+6. Event registration confirmation.
+7. Event reminders.
+8. Published announcements.
+9. Relevant membership notifications.
+10. Operational failure alerts.
+
+The email system must support:
+
+- Queue status.
+- Retry count.
+- Next eligible attempt.
+- Idempotency key.
+- Provider message reference.
+- Delivery/bounce webhook handling.
+- Rate limits.
+- Failure reporting.
+- Authorized manual retry.
+
+Implement bounded retries with backoff.
+
+A provider accepting a send request is not the same as confirming delivery.
+
+For non-essential announcements, implement appropriate subscription preferences and opt-out handling.
+
+Validate provider webhook signatures according to the provider documentation.
+
+Never create an unbounded retry loop.
+
+---
+
+# 12. EVENT REGISTRATION PIPELINE
+
+The public homepage is the entry point for public event registration.
+
+Workflow:
+
+1. Visitor opens an upcoming event.
+2. Registration form appears on the homepage or a homepage-linked section.
+3. The server verifies the event is published and registration is open.
+4. The server checks the deadline and available capacity.
+5. Duplicate registration is prevented.
+6. The registration record is persisted.
+7. An email confirmation is queued.
+8. The admin dashboard updates registration counts.
+9. A scheduled job sends configured reminders.
+10. Attendance can be recorded by authorized staff.
+11. Completed events are archived with approved content.
+
+Do not allow registration for a cancelled, unpublished, closed or full event.
+
+Support appropriate guest registration or authenticated member registration without exposing private profile information.
+
+---
+
+# 13. ANNOUNCEMENT PIPELINE
+
+Workflow:
+
+1. Authorized editor creates a draft.
+2. Editor chooses the audience.
+3. Content is previewed.
+4. Editor publishes immediately or schedules publication.
+5. The backend validates permission.
+6. The announcement becomes visible to the authorized audience.
+7. Unique email jobs are generated for eligible recipients.
+8. The worker processes the email queue.
+9. Provider results are recorded.
+10. The admin panel displays delivery status.
+
+Support draft, scheduled, published and archived states.
+
+Prevent accidental duplicate campaigns.
+
+Require confirmation before bulk sending.
+
+Create a clear separation between website publication and email delivery so that temporary provider failures do not delete or lose the published announcement.
+
+---
+
+# 14. MESSAGING AND VIDEO CONFERENCING
+
+## 14.1 Messaging
+
+Route:
+
+`/workspace/messages`
+
+Implement:
+
+- Direct conversations.
+- Group conversations.
+- Persistent message history.
+- Realtime message updates.
+- Conversation search.
+- Unread indicators.
+- Message timestamps.
+- Loading and pagination states.
+- Reporting/blocking and basic moderation.
+- Safe attachment rules where applicable.
+
+Validate sender membership and conversation access before reading or writing messages.
+
+Do not rely exclusively on Realtime subscription configuration; the underlying data must remain protected by RLS.
+
+## 14.2 Video conferencing
+
+Route:
+
+`/workspace/meet/:roomId`
+
+Support:
+
+- Multi-participant video rooms.
+- Microphone controls.
+- Camera controls.
+- Participant list.
+- Screen sharing.
+- Join and leave controls.
+- Authorized room creation.
+- Meeting invitations.
+- Expiring room access.
+
+Implement a provider adapter so Daily or Jitsi can be replaced without rewriting member or meeting business logic.
+
+The backend must validate room access and issue provider credentials appropriately.
+
+Do not transmit video streams through Supabase Realtime.
+
+Keep provider API secrets server-side and measure participant-minutes against the selected provider's limits.
+
+---
+
+# 15. ANIMATION, ACCESSIBILITY AND PERFORMANCE
+
+Use Motion for React for purposeful interactions.
+
+Recommended effects:
+
+- Hero text entrances.
+- Subtle background movement.
+- Staggered member/event cards.
+- Page transitions.
+- Animated menus.
+- Loading skeletons.
+- Restrained hover effects.
+- Notification indicators.
+
+Performance requirements:
+
+- Lazy-load admin, messaging and video routes.
+- Use responsive WebP/AVIF media where supported.
+- Paginate large directories and messages.
+- Cache server data appropriately.
+- Debounce search.
+- Cancel stale requests.
+- Avoid unnecessary rerenders.
+- Subscribe only to relevant realtime events.
+- Use database indexes and inspect slow queries.
+- Avoid huge videos or excessive scroll animations.
+- Respect `prefers-reduced-motion`.
+- Support keyboard navigation and visible focus indicators.
+- Test on mobile devices and slower internet connections.
+
+Target good real-world Core Web Vitals rather than claiming performance without measurement.
+
+Ensure loading, error, empty and permission-denied states are implemented consistently.
+
+---
+
+# 16. DEVOPS AND CI/CD
+
+Use GitHub for version control.
+
+Branch strategy:
+
+- `feature/*`
+- `fix/*`
+- `security/*`
+- Protected `main`
+- Release tags for identifiable versions
+
+## 16.1 CI pipeline
+
+For each pull request:
+
+1. Install dependencies from the lockfile.
+2. Run ESLint.
+3. Run TypeScript type checks.
+4. Run unit tests.
+5. Run integration tests.
+6. Build the frontend.
+7. Scan dependencies.
+8. Scan for secrets.
+9. Validate migrations.
+10. Run RLS and authorization tests.
+11. Run critical Playwright flows.
+12. Block merging if mandatory checks fail.
+
+Pin third-party GitHub Actions to verified full-length commit SHAs where practical.
+
+Restrict GitHub token permissions.
+
+Never expose production credentials to untrusted pull-request workflows.
+
+## 16.2 Deployment pipeline
+
+1. Merge an approved, tested change.
+2. Build reproducible artifacts.
+3. Deploy a preview or test version.
+4. Run acceptance and security tests.
+5. Apply reviewed, backward-compatible database migrations.
+6. Deploy compatible Edge Functions.
+7. Deploy the frontend through Cloudflare Pages.
+8. Run post-deployment smoke tests.
+9. Record the release.
+10. Monitor errors and roll back or recover if necessary.
+
+Avoid duplicate independent pipelines deploying the same component.
+
+## 16.3 Migration safety
+
+All database schema modifications must be version-controlled.
+
+Use an expand–migrate–contract strategy for breaking schema changes.
+
+Never assume that a frontend rollback reverses a database migration.
+
+For irreversible data transformations, define recovery before production execution.
+
+## 16.4 Environment separation
+
+Use development, staging/test and production configurations.
+
+Prefer separate projects where resources permit. Otherwise use isolated local/test environments.
+
+Production accounts must not be used for casual experimentation.
+
+---
+
+# 17. SECRET MANAGEMENT
+
+Frontend configuration may contain:
+
+```text
+VITE_SUPABASE_URL
+VITE_SUPABASE_PUBLISHABLE_KEY
+```
+
+Never place these in frontend code:
+
+```text
+SUPABASE_SERVICE_ROLE_KEY
+RESEND_API_KEY
+VIDEO_PROVIDER_SECRET
+DATABASE_PASSWORD
+```
+
+Any variable bundled into a Vite frontend must be treated as public.
+
+Keep local configuration in ignored `.env.local` files.
+
+Commit `.env.example` with placeholders only.
+
+Use provider secret stores or restricted CI environments for production credentials.
+
+If a credential is exposed:
+
+1. Revoke or rotate it.
+2. Investigate potential misuse.
+3. Update the secret store.
+4. Redeploy affected components.
+5. Review repository history where appropriate.
+6. Verify the old credential is invalid.
+
+---
+
+# 18. SECOPS AND INCIDENT RESPONSE
+
+Follow OWASP Top 10:2025 and use OWASP ASVS 5.0 as an application-security verification reference.
+
+Threats to test:
+
+- Privilege escalation.
+- Unauthorized admin access.
+- Private-message exposure.
+- Applicant-data exposure.
+- Malicious file uploads.
+- Invitation abuse.
+- Secret leakage.
+- Email abuse.
+- Unsafe database migrations.
+- Supply-chain compromise.
+
+Implement structured security events, including:
+
+```text
+auth.login_failed
+membership.application_submitted
+membership.application_approved
+access.authorization_denied
+admin.role_changed
+admin.permission_revoked
+announcement.published
+email.delivery_failed
+video.room_access_denied
+```
+
+Never log passwords, access tokens, provider secrets or private message contents.
+
+Implement incident runbooks for:
+
+- Leaked secrets.
+- Compromised admin accounts.
+- Suspected data exposure.
+- Failed deployments.
+- Database outages.
+- Email delivery incidents.
+
+For each incident, preserve relevant evidence, contain access, recover safely, verify controls and add regression tests.
+
+---
+
+# 19. MONITORING AND BACKUP PIPELINES
+
+Monitor:
+
+- Frontend deployment health.
+- Authentication failures.
+- Database errors and capacity.
+- Edge Function errors and latency.
+- Email queue depth and failures.
+- Realtime errors.
+- Video-room failures.
+- Security events.
+- Backup freshness and restore status.
+
+Use provider dashboards and structured application logs initially. Add extra observability infrastructure only when there is a concrete need.
+
+## Backup pipeline
+
+1. Schedule database export.
+2. Validate export completion.
+3. Encrypt backup.
+4. Store it in restricted off-site storage.
+5. Back up necessary Storage API objects separately.
+6. Record timestamp and checksum.
+7. Apply a documented retention policy.
+8. Restore to an isolated test environment.
+9. Verify schema, data and object integrity.
+10. Record the test result.
+
+Define an RPO and RTO based on club needs.
+
+Never claim a backup is verified unless it has actually been restored successfully.
+
+Do not retain application records, messages or personal information indefinitely without a documented reason.
+
+---
+
+# 20. OPTIONAL MLOPS
+
+Do not build MLOps infrastructure for the first release unless an approved feature actually requires machine learning.
+
+Possible future uses:
+
+- Registration spam classification.
+- Event recommendations.
+- Categorization of member ideas.
+- An opt-in FAQ assistant grounded in approved club documentation.
+
+Potential stack:
+
+- Python.
+- pandas.
+- scikit-learn.
+- pytest.
+- Versioned datasets and model artifacts.
+- MLflow if experiment tracking becomes necessary.
+- A separate, replaceable inference API.
+
+A model release pipeline must include:
+
+1. Approved use case.
+2. Privacy and data provenance review.
+3. Data validation.
+4. Reproducible baseline.
+5. Held-out evaluation.
+6. False-positive and false-negative analysis.
+7. Model artifact versioning.
+8. Input validation and inference security.
+9. Monitoring for quality degradation.
+10. Tested rollback or disable capability.
+
+Do not use ML to automatically grant privileged roles or reject members without appropriate human oversight.
+
+Do not automatically use private messages or application records as training data.
+
+---
+
+# 21. TESTING AND DEFINITION OF DONE
+
+Create automated tests verifying:
+
+- Visitors cannot access private admin data.
+- Members cannot grant themselves privileges.
+- The last Super Admin cannot be accidentally removed.
+- Duplicate applications are correctly handled.
+- Expired invitations are rejected.
+- Members cannot modify another member's profile.
+- Non-participants cannot read private conversations.
+- Duplicate event registrations are prevented.
+- Retried announcement jobs do not create unintended duplicate sends.
+- Temporary email failures are recoverable.
+- Unauthorized users cannot receive video-room credentials.
+- Upload rules prevent unauthorized access.
+- Database migrations are reproducible.
+- Critical browser journeys work after deployment.
+- Backup restoration verifies schema, records and storage objects.
+
+A feature is done only when:
+
+- Implementation is complete.
+- Relevant tests pass.
+- Authorization rules are verified.
+- Loading, error and empty states exist.
+- Documentation is updated.
+- Deployment and recovery are understood.
+- No unresolved critical security problem is knowingly shipped.
+
+Never state that tests passed unless they were actually executed and the results were inspected.
+
+---
+
+# 22. IMPLEMENTATION PHASES
+
+Execute in the following order.
+
+## Phase 0 — Repository inspection and planning
+
+Inspect the existing project before changing it.
+
+Determine whether a React/Vite project already exists, identify installed dependencies and preserve useful existing work.
+
+Create a concise implementation plan, architecture documents and a tracked feature checklist.
+
+Do not overwrite an existing project blindly.
+
+## Phase 1 — Foundation
+
+Set up TypeScript, Vite, styling, routing, linting, testing, Git conventions, environment configuration and basic deployment.
+
+## Phase 2 — Public website
+
+Implement homepage, team directory, profiles, events archive and public announcements with reusable components and database integration.
+
+## Phase 3 — Authentication and authorization
+
+Implement account activation, membership status, role tables, RLS, permissions and authorization tests.
+
+## Phase 4 — Admin panel
+
+Implement application review, member and teacher management, role/permission management, events, announcements and audit history.
+
+## Phase 5 — Business automation
+
+Implement event registration, transactional email, email outbox, announcement campaigns, reminders and delivery reporting.
+
+## Phase 6 — Messaging
+
+Implement direct/group conversations, persistent messages, realtime updates, unread states and moderation.
+
+## Phase 7 — Video
+
+Implement the provider adapter, meeting creation, authorization, participant access and screen sharing.
+
+## Phase 8 — Operations and security
+
+Implement CI/CD, monitoring, backups, recovery drills, incident runbooks, performance optimization and security hardening.
+
+## Phase 9 — Optional ML
+
+Implement a model pipeline only when an approved, measurable use case exists.
+
+---
+
+# 23. WORKING RULES FOR THE CODING AGENT
+
+Follow this execution protocol strictly.
+
+1. Start by inspecting the existing repository, installed dependencies and current application state.
+2. Identify any existing implementation that can safely be reused.
+3. Create a file-based implementation plan and feature checklist.
+4. Configure the foundation before implementing application features.
+5. Implement in the phases above, keeping each phase testable.
+6. After each meaningful change, run relevant type checks, tests and builds.
+7. Fix discovered errors instead of continuing with a broken baseline.
+8. Use actual Supabase schema migrations and RLS policies.
+9. Use real API integrations when credentials and configuration are available.
+10. If credentials are unavailable, implement a well-defined provider interface and an explicit development/test mode; clearly mark the integration as unconfigured rather than claiming it works.
+11. Never insert fabricated member records, email-delivery results or meeting credentials into production.
+12. Never bypass security checks to make a feature appear functional.
+13. Keep the application usable when email or video providers are temporarily unavailable.
+14. Do not request secrets through chat or write them into tracked files.
+15. Do not ask unnecessary clarification questions. Use documented, conservative defaults, list assumptions and continue.
+16. When a phase is incomplete, report the missing implementation and exact blocker.
+17. Preserve existing working features when refactoring.
+18. Keep architecture and deployment documentation synchronized with the code.
+
+When using a tool-capable coding environment, inspect files and run commands directly rather than merely writing instructions for the user to execute.
+
+Do not generate an enormous set of unconnected files without validating imports, dependencies, database contracts and application behavior.
+
+---
+
+# 24. FINAL DELIVERABLES
+
+The completed repository must contain:
+
+- Functional public website.
+- Authentication and membership lifecycle.
+- Unique member profiles and directory.
+- Event archive and public registration.
+- Announcement management and email integration.
+- Isolated admin panel.
+- Database-backed role and permission system.
+- Teacher/member management.
+- Private messaging.
+- Video-conferencing integration or explicitly documented unconfigured provider.
+- SQL migration files.
+- RLS policies and authorization tests.
+- Edge Functions for privileged operations.
+- Email outbox and delivery tracking.
+- Operational logging and monitoring guidance.
+- Automated CI workflows.
+- Backup and recovery documentation.
+- Security and incident-response runbooks.
+- HLD, LLD and database documentation.
+- `.env.example`.
+- Comprehensive README with local setup, testing, deployment and recovery instructions.
+- A final implementation status report with completed functionality, failing tests, external configuration requirements, security limitations and next steps.
+
+# FINAL EXECUTION INSTRUCTION
+
+Begin by inspecting the current repository and determining its state.
+
+Then implement the project sequentially, beginning with the foundation and continuing through the public website, secure membership system, admin panel, business automation, messaging, video and operational hardening.
+
+At every stage, prioritize correct behavior, security, clear architecture and testable functionality over superficial visual completeness.
+
+Build a maintainable, production-conscious platform for the Entrepreneurship Club—not merely a static mockup.

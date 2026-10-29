@@ -1,0 +1,251 @@
+     1→# Worklog
+     2→
+     3→---
+     4→Task ID: 1
+     5→Agent: main (Z.ai)
+     6→Task: Build the complete Entrepreneurship Club Digital Platform per the master build prompt (public website, member workspace, admin panel, RBAC, email automation, messaging, video, docs, tests).
+     7→
+     8→Work Log:
+     9→- Loaded fullstack-dev skill; initialized environment; inspected repo (fresh Next.js 16 scaffold, no prior club code).
+    10→- Classified as Type 3 (web dev); master prompt §23.15 explicitly forbids clarification questions → proceeded with documented conservative defaults.
+    11→- Built Prisma schema: 24 tables (identity/RBAC, membership, events, announcements, email outbox, comms, video, governance). Fixed EventRegistration reverse relation; `db push` clean.
+    12→- Core libs: scrypt password hashing, JWT session cookies (jose), deny-by-default RBAC core (grants, scopes, escalation guards), in-memory sliding-window rate limiter, audit logger with secret redaction, shared Zod validations, API helpers.
+    13→- Email engine: provider interface (Console dev / Resend), outbox state machine (atomic claims, bounded backoff, dead-letter, delivery logs), 10 HTML templates, cron worker, Resend webhook with HMAC verification.
+    14→- Video adapter: JitsiEmbedProvider (default) + DailyProvider (config-gated); server-side room access validation.
+    15→- ~40 API route handlers: auth (login/logout/session/forgot/reset/accept-invite), public (stats/team/members/events/register/announcements/join), workspace (dashboard/profile/users/conversations/meetings/notifications/report), control (overview/applications/decisions/invites/members/roles/events/attendance/announcements/fanout/emails/moderation/audit/settings), cron, webhooks, internal chat contract.
+    16→- Seed script (roles, permissions, marked PLACEHOLDER demo content). Fixed userIds map key bug.
+    17→- SPA at single `/` route with hash router: 27 lazy-loaded views across public/auth/workspace/control; 3 layouts; auth context; shared components; framer-motion with reduced-motion support.
+    18→- socket.io chat mini-service on :3003 (transport-only; persistence via internal-token API).
+    19→- Fixed during build: AuthorizationError import path, PERMISSIONS re-export, require() bans, setState-in-effect violations (motion hook → useSyncExternalStore; audit/events/meeting-room refactors), missing home route in hash table, socket.io-client dependency, hydration error (div-in-p), stale Turbopack cache (dev restart), missing spa/api dir.
+    20→- Wrote 12 docs (REQUIREMENTS, HLD, LLD, DATABASE, SECURITY, DEVOPS, AUTOMATIONS, INCIDENT_RESPONSE, BACKUP_RECOVERY, DEPLOYMENT, DECISIONS, STATUS_REPORT), CI workflow, .env.example, README.
+    21→- 34 bun tests (RBAC matcher, rate limiter, auth crypto, outbox invariants) — all passing; ESLint 0 problems.
+    22→- API smoke: login 200 / unauth 401 / member-on-admin 403; join → approve → invite → email chain; guest event registration (capacity tracked); email worker processed 9 jobs (console provider); cron summary OK.
+    23→- Browser E2E (agent-browser via gateway :81): homepage/team/search render with live data; member login → workspace (permission-filtered nav); realtime messaging verified (socket connect → send → persist → broadcast → render); super admin control panel (11 sections), application approve with confirm dialog, audit log rendering, Email Center dev-mode badge; mobile 390px + desktop 1366px no horizontal scroll; footer natural-push verified.
+    24→
+    25→Stage Summary:
+    26→- Deliverable: full-stack platform at /home/z/my-project (Next.js 16 + Prisma/SQLite + socket.io service). Demo accounts documented in README (password ClubDemo#2024, dev-only).
+    27→- Key decisions in docs/DECISIONS.md (D1–D12): hash-routed SPA, local auth (Supabase unavailable), route handlers as privileged tier, outbox email, URL-reference media, Jitsi default/Daily gated, marked demo seed.
+    28→- Honest gaps in docs/STATUS_REPORT.md: Resend delivery, Daily, webhook signatures, backup drills = implemented but unverified (no credentials); MFA not implemented (tracked).
+    29→- Artifacts: app on :3000, chat service on :3003, 34/34 tests, lint clean.
+    30→
+    31→---
+    32→Task ID: 2
+    33→Agent: main (Z.ai)
+    34→Task: Provide the user with an admin and a member login for the Entrepreneurship Club platform.
+    35→
+    36→Work Log:
+    37→- Identified request as credentials delivery for the previously built platform (worklog Task 1), not a new build.
+    38→- Confirmed seeded demo accounts in prisma/seed.ts and README; verified both via POST /api/auth/login (200 + user payloads).
+    39→- Found admin sign-in route (#/control/sign-in) deadlocked on infinite PageLoader: ControlLayout gated ALL control routes (incl. sign-in itself) behind authentication -> unauthenticated users could never see the form.
+    40→- Fixed src/spa/layouts/control-layout.tsx: sign-in route now bypasses the auth gate (isSignIn early return; redirect effect skips sign-in path).
+    41→- Fixed React hydration mismatch in src/app/page.tsx: SSR rendered '/' while client rendered real hash path; switched SpaApp to next/dynamic ssr:false with BootLoader fallback (useEffect+setState pattern was rejected by react-hooks/set-state-in-effect lint rule).
+    42→- Cleared stale .next Turbopack cache and restarted dev server via init script (previous instance had EADDRINUSE + stale cache).
+    43→- bun run lint: 0 problems.
+    44→- Browser E2E (agent-browser): admin login -> /#/control panel (11 sections, Super Admin, live KPIs); sign out -> member login -> /#/workspace (Rohan Verma, member-level nav only). Dev log clean, no runtime errors.
+    45→
+    46→Stage Summary:
+    47→- Admin login: superadmin@club.adypu.edu.in / ClubDemo#2024 (verified in browser -> control panel).
+    48→- Member login: member@club.adypu.edu.in / ClubDemo#2024 (verified in browser -> workspace).
+    49→- Admin sign-in deadlock + SPA hydration mismatch fixed; lint clean; server stable on :3000.
+    50→
+    51→---
+    52→Task ID: 3
+    53→Agent: main (Z.ai)
+    54→Task: Fix "login succeeds but no redirect" reported by user.
+    55→
+    56→Work Log:
+    57→- Dev log showed POST /api/auth/login 200 + GET /api/auth/session 200 per attempt, but no workspace/control API calls after -> client redirect bounced back to login because the browser never stored the session cookie.
+    58→- Root cause: user accesses via embedded preview iframe (cross-site context); browsers drop SameSite=lax cookies there. Top-level tests (agent-browser, curl) passed, masking the issue.
+    59→- Fix (4 edits): (1) session.ts getSessionUserId() now falls back to Authorization: Bearer header; (2) login + accept-invite routes return `token` in body; (3) api client stores token in localStorage, auto-attaches Bearer, auto-captures tokens from auth responses, clears on 401; (4) auth store logout calls clearToken().
+    60→- Verified: lint 0 problems; curl cookie-less bearer flow (member + admin) -> authenticated:true; browser E2E with cookies+storage wiped mid-session -> stays on /#/workspace authenticated.
+    61→
+    62→Stage Summary:
+    63→- Login now redirects correctly in both top-level and cookie-blocked iframe contexts. Same credentials as Task 2. Bearer fallback documented in code comments; httpOnly cookie remains primary in normal contexts (localStorage token = sandbox tradeoff, noted in docs/DECISIONS.md follow-up).
+    64→
+    65→---
+    66→Task ID: 4
+    67→Agent: main (Z.ai)
+    68→Task: Reframe to the master build prompt -> execute Phase 0 (repo inspection + docs/GAP_REPORT.md) and stop for confirmation.
+    69→
+    70→Work Log:
+    71→- Parsed the uploaded master build prompt; its final execution instruction mandates Phase 0 first: inspect repo + produce docs/GAP_REPORT.md, present, and stop before any implementation.
+    72→- Inspected: repo tree, docs/ (12 files, no GAP_REPORT), scripts/ (EMPTY - no seed-demo-data.ts, no purge scripts), tests/ (4 pure-logic bun suites; verified no DB writes), ci.yml (valid triggers; supply-chain gates commented out), .env.example present.
+    73→- Verified Section 25 status: no is_seed_data column (0 hits in schema + live column list), no assertTestDatabase guard anywhere, no purge scripts, no enforced env separation -> all 6 requirements missing/unsatisfied.
+    74→- Ran read-only DB inspection (scripts/phase0_db_inspect.py, sqlite RO mode): named incident patterns job_persists_/founder_resend_outage_/outage_user_ = 0 rows; external-URL avatars/posters = 0 rows; BUT found live analog defect: MemberApplication test.user@student.adypu.edu.in (approved, from prior session's API smoke test) visible in admin UI, plus related ClubInvite + EventRegistration rows.
+    75→- Wrote docs/GAP_REPORT.md: stack deviations D1-D12, incident evidence, full gap matrix for sections 5-21, Section 25 table, remediation order (Section 25 first), explicit stop.
+    76→
+    77→Stage Summary:
+    78→- GAP_REPORT.md presented; NO implementation performed beyond the report + read-only inspection script.
+    79→- Key verdict: platform functionally complete (sections 5-14 built & verified with documented stack deviations); gaps concentrate in Section 25 (all 6 requirements), CI hardening (secret scan, Playwright, backup drill).
+    80→- Awaiting explicit user confirmation to implement Section 25 remediation.
+    81→
+    82→---
+    83→Task ID: 5
+    84→Agent: main (Z.ai)
+    85→Task: Implement the Super Admin Control Suite PRD (member mgmt, role manipulation, content override, broadcast meetings, automations) + carry Section 25 forward in full.
+    86→
+    87→Work Log:
+    88→- §14 dependency audit: confirmed Phases 3-5 in place; revoke-role + custom roles + invite path already existed -> reported, extended rather than duplicated.
+    89→- Section 25 (PRD §1.6): isSeedData columns (Profile/ClubEvent/Announcement) + migration; public query filters (team/members/events/announcements/stats + registration guard); assertTestDatabase guard (src/lib/test-guard.ts); guarded scripts run-purge.ts (fixtures|seed|dry) + purge SQL files + seed-demo-data.ts; test suite self-cleaning + disposable local SQLite reset per run.
+    90→- Schema (PRD §6): numbered migration 20251026000001_super_admin_powers (baseline 00000_init resolved first) — createdVia/archivedAt, deletedAt x2, ClubInvite.requestedUsername, VideoRoom audienceType/audienceRef/endedById, AutomationRun table, VideoRoom lifecycle scheduled|live|ended ('active' rows migrated to 'live').
+    91→- Permissions (§5): 9 new keys; admin gets operational subset only; SUPER_ADMIN_EXCLUSIVE_PERMISSIONS exported for custom-role rejection.
+    92→- Services+routes (§7): create-member (invite/active, temp password never emailed), custom-role bundling w/ exclusivity rejection, manage-announcement/event (soft delete + force-unpublish/cancel + registrant editor), broadcast-meeting (audience resolver excludes seed/inactive/suspended; per-recipient idempotent notifications+emails), end-meeting (realtime room:{id}:control force_ended via new chat-service /internal/emit). Cron /api/cron/automations runs 4 jobs w/ automation_runs logging (§9).
+    93→- UI (§8): Add Member dialog (mode toggle + super-admin option gating), role permission matrix (exclusives visibly disabled), announcement/event override dialogs w/ explicit cannot-recall-emails notice + manual registrant editor, new /control/meetings + /control/automations pages, sidebar items.
+    94→- Tests (§11): tests/integration (12 PRD-named + 4 S25 + extras) — 20 pass against guarded test DB; 34 pure-logic tests pass; lint clean. Fixed during testing: test-DB reset per run, null-vs-undefined guard case, all_members audienceRef validation, per-reviewer digest expectation.
+    95→- Verification: purge removed the GAP_REPORT live defect (test.user@ fixture, 0 rows left); automations executed once (all success, runs visible); browser E2E — Add Member active-mode end-to-end (createdVia=admin_direct_active, set-password email queued), broadcast to all_members invited exactly 1 non-seed member and 0 seed profiles, End-for-everyone set status+endedBy+audit; E2E rows cleaned via guarded script; docs updated (DATABASE/AUTOMATIONS/DEVOPS/DECISIONS D13-D14/GAP_REPORT addendum/STATUS_REPORT/README).
+    96→
+    97→Stage Summary:
+    98→- PRD implemented in full with Section 25 carried forward; all §11 named tests pass; DoD items verified.
+    99→- Note: dev public pages intentionally show empty directories (all dev content is seed-tagged per §25.2) — documented in D13.
+   100→- Server on :3000, chat service on :3003 (new internal emit endpoint), migrations recorded in prisma/migrations.
+   101→
+   102→---
+   103→Task ID: 6
+   104→Agent: main (Z.ai)
+   105→Task: Fix "added member not reflecting on Our Team page"
+   106→
+   107→Work Log:
+   108→- Traced Our Team page → GET /api/public/team → filters isPublic:true AND isSeedData:false (§5.2 approved-only)
+   109→- Root cause: admin "Create Active Now" hardcodes profile.isPublic=false (create-member.ts:143); admin must separately toggle Edit→Public directory listing; nothing in the dialog hinted at that. DB confirmed member@gmail.com (@membertest1) isPublic=false, createdVia=admin_direct_active
+   110→- Fix (UI): Add Member dialog now shows a "Public directory listing" switch in Create-Active-Now mode (default off); success toast now states explicitly whether the member is listed or how to list them later
+   111→- Fix (API): adminCreateMemberSchema + createMember accept optional isPublic; active-mode profile created with admin's choice; audit metadata includes isPublic
+   112→- Invite mode: profile is created at accept-invite time (isPublic = type!=='teacher'); dialog shows no toggle in invite mode, toast explains acceptance-time listing
+   113→- Latent bugs found & fixed on same flow: (1) ClubInvite.create wrote nonexistent requestedUsername column → admin invite mode 500 at runtime; removed. (2) accept-invite read invite.requestedUsername / invite.token (both nonexistent) → hashToken(undefined) would 500 ALL invite acceptances; username now derived from email local-part + tokenHash.slice(0,4). (3) 'admin.member_created' missing from AuditEvent union; added
+   114→- Fixed existing member@gmail.com via real PATCH /api/control/members path (audit written) → isPublic=true
+   115→- Verified via API: invite-mode creation now 201 (was 500); smoke invite + outbox row cleaned up
+   116→- Verified via agent-browser: team page shows @membertest1; Add Member dialog shows switch in active mode; created team.check with toggle ON → toast confirms + team API total=2; test member cleaned up afterwards
+   117→- tsc/eslint clean on all touched files
+   118→
+   119→Stage Summary:
+   120→- Files changed: src/spa/pages/control/members.tsx, src/lib/admin/create-member.ts, src/lib/validations.ts, src/lib/audit.ts, src/app/api/auth/accept-invite/route.ts
+   121→- Behavior: active-mode members now listable on Our Team at creation time; invite acceptance no longer 500s; admins get explicit feedback about directory visibility
+   122→- Note: seed profiles are intentionally hidden from public pages (Section 25.2, isSeedData=true) — Our Team shows only real members
+   123→
+   124→---
+   125→Task ID: 8
+   126→Agent: main (Z.ai)
+   127→Task: Fix runtime ReferenceError "Can't find variable: useParams" in meeting-room.tsx
+   128→
+   129→Work Log:
+   130→- Root cause: meeting-room.tsx called useParams<{roomId}>() — a hook never imported and nonexistent in the project; the custom hash router (src/spa/router.tsx) passes params as a component prop
+   131→- Fix: signature changed to ({ params }: { params: { roomId: string } }) matching the house convention used by member-profile/event-detail/announcement-detail
+   132→- Confirmed only ONE useParams call site existed in src/
+   133→- Note: app.tsx shows 4 pre-existing TS2322 lazyPage assignability errors (strictFunctionTypes contravariance: narrow page props vs RouteComponent) — same family for all param pages, no runtime impact, left as-is to avoid widening scope
+   134→- Verified in browser: logged in as superadmin → /#/workspace/meet/cmvp4ihfv001fu480bd8ookk3 renders room "Ben" with Jitsi iframe; agent-browser errors list empty
+   135→- Room route is workspace/meet/:roomId (NOT workspace/meetings/:roomId); meetings list navigates via /workspace/meet/{id}
+   136→
+   137→Stage Summary:
+   138→- File changed: src/spa/pages/workspace/meeting-room.tsx (one line)
+   139→- Meeting room page is now reachable and crash-free
+   140→
+   141→---
+   142→Task ID: 9
+   143→Agent: main (Z.ai)
+   144→Task: Add Discord-style voice chat ("Voice Lounge") to the workspace
+   145→
+   146→Work Log:
+   147→- Prisma: VoiceChannel model (id, slug, name, topic, createdById, timestamps) → db push
+   148→- RBAC: new 'voice.manage' permission; granted to club_president + admin (super_admin via ALL keys); joining needs no permission (workspace gates auth); audit events voice.channel_created/deleted/joined added to union
+   149→- Seed: 3 default channels (General Lounge, Build Desk, Chill Zone); created "Game Night" via UI during verification (kept as demo content)
+   150→- chat-service: voice presence (voice_join/voice_leave/voice_mute, disconnect cleanup, io-wide voice_presence broadcast, GET /internal/voice-presence)
+   151→- CRITICAL PRE-EXISTING BUG FIXED: engine.io (socket.io path '/') intercepts EVERY http request on :3003 — /internal/emit NEVER worked (force-end meeting broadcasts silently dead). Added dedicated internal control plane on 127.0.0.1:3004 hosting /internal/emit + /internal/voice-presence; emitRealtime retargeted. /internal/emit returns 200 for the first time
+   152→- API: /api/workspace/voice (GET list+presence, POST create), /[id] DELETE (broadcasts voice_channel_removed), /[id]/join (auth+active check, provider join info audio-first)
+   153→- UI: src/spa/pages/workspace/voice.tsx — channel cards w/ live presence chips + online count, click-to-join Jitsi audio-first iframe (startWithVideoMuted, startAudioOnly), one-channel-at-a-time, mute indicator, leave, admin create/delete (voice.manage); sidebar nav "Voice Lounge" (Volume2 icon, permission null); route workspace/voice
+   154→- Dev server restart required after db push (stale Prisma client module cache); re-daemonized via init-fullstack.sh
+   155→- BUG FOUND DURING E2E: socket effect depended on user identity — auth refresh() re-ran effect → socket churn → server-side presence wiped silently (race won/lost randomly). Fixed with latest-ref userRef + re-assert join on every 'authenticated' (self-heal)
+   156→- NOTE: realtime sockets only work through the gateway (localhost:81 / preview URL) — hitting Next directly on :3000 cannot proxy /socket.io; XTransformPort is gateway-only
+   157→- Verified via two agent-browser sessions through gateway: both users join General Lounge → server presence shows both; member's fresh UI shows both chips; superadmin UI updates LIVE (no reload) via voice_presence broadcast; switch channel → leaves previous; leave → presence clears; member has no admin controls (permission gating)
+   158→- Housekeeping: demo member account (member@club.adypu.edu.in) was found suspended from earlier suspend-flow testing — reactivated it
+   159→
+   160→Stage Summary:
+   161→- Files: prisma/schema.prisma, prisma/seed.ts, src/lib/rbac/permissions.ts, src/lib/audit.ts, src/lib/validations.ts, src/lib/realtime/emit.ts, src/app/api/workspace/voice/**, src/spa/pages/workspace/voice.tsx, src/spa/layouts/workspace-layout.tsx, src/spa/app.tsx, mini-services/chat-service/index.ts
+   162→- Voice Lounge is live and browser-verified with real-time cross-client presence
+   163→
+   164→---
+   165→Task ID: 9b
+   166→Agent: Z.ai (main)
+   167→Task: Fix React duplicate-key console error on Voice Lounge — "Encountered two children with the same key, cmvoto19c006lu497t2u3e92t" at voice.tsx:265
+   168→
+   169→Work Log:
+   170→- Root cause: chat-service tracked voice presence per SOCKET (voiceBySocket: Map<socketId, VoiceState>), so the same user with two live sockets (second tab, or reconnect zombie lingering up to 60s pingTimeout) produced two snapshot entries with the same userId; client renders key={p.userId} → duplicate React key.
+   171→- Fix 1 (server, mini-services/chat-service/index.ts): extracted dropVoiceSocket(socketId) helper (map cleanup + io room leave, zombie-safe); voice_join now evicts EVERY other socket entry of the same user before registering — Discord semantics, one voice connection per user; leaveVoiceChannel refactored onto the helper.
+   172→- Fix 2 (API, src/app/api/workspace/voice/route.ts GET): dedupe presence by userId when building byChannel (polling fallback path, race-safe).
+   173→- Fix 3 (client, src/spa/pages/workspace/voice.tsx voice_presence handler): dedupe by userId before writing the query cache — render keys guaranteed unique even if a snapshot races eviction.
+   174→- Ops: old service (pid 14468) survived SIGTERM (graceful httpServer.close hangs on live connections) → SIGKILL; setsid backgrounding gets reaped between tool calls — plain `(bun index.ts > service.log 2>&1 &)` subshell pattern is what persists. Added diagnostic logging: authenticated/voice_join_rejected lines.
+   175→- Diagnostics along the way: browser on :3000 CANNOT reach :3003 (gateway only exists on :81 via XTransformPort query — that is the real user traffic path; :3004 is 127.0.0.1-only and 502s through the gateway via ::1). Regression script scripts/test-voice-presence.ts validates server logic directly on 127.0.0.1:3003.
+   176→- Verified end-to-end on http://localhost:81 (real path): joined General Lounge as superadmin (userId cmvoto19c006lu497t2u3e92t — the EXACT id from the user's error), joined same channel from a SECOND tab → internal snapshot holds exactly ONE entry (newest socket), zero console errors on BOTH tabs, "1 online" badge + single "Platform Admin" presence badge; closing tabs empties presence. Regression script: 4/4 PASS (dup user→1 entry, newest socket survives, distinct users→2 entries, disconnect cleanup). tsc/eslint clean for touched files (pre-existing error families untouched).
+   177→
+   178→Stage Summary:
+   179→- Duplicate-key error eliminated at three layers: server eviction (authoritative), API dedupe, client dedupe. Presence identity is now the USER, not the socket.
+   180→- Diagnostic logging added to chat-service (authenticated / voice_join_rejected) for future debugging.
+   181→- scripts/test-voice-presence.ts is a reusable regression probe against 127.0.0.1:3003/:3004.
+   182→- KEY ENV FACT: browser traffic must flow through :81 gateway (XTransformPort) — :3000 direct cannot reach :3003.
+   183→
+   184→---
+   185→Task ID: 10
+   186→Agent: Z.ai (main)
+   187→Task: Scroll-driven pixel dither hero (PRD: Landing Page Hero — Bayer dither morph cloud→mark→arrow) as the landing page hero background + §5 reveal system + §7 tests + profiling report
+   188→
+   189→Work Log:
+   190→- New src/features/landing/pixelDither.ts: 8x8 Bayer matrix (normalized, tiling), ShapeSampler contract, cloud/mark(diamond placeholder)/arrow samplers, SHAPE_SEQUENCE, extracted mixGray() + morphStage() for unit-testability
+   191→- New src/features/landing/PixelDitherHero.tsx: 180vh pinned container + sticky h-screen wrapper, single canvas at fixed 140×78 (GPU-upscaled via image-rendering:pixelated, never DPR-scaled), getContext('2d',{alpha:false}), scroll progress in a ref (passive listener, layout read only in handler), IntersectionObserver-gated rAF that FULLY CANCELS when hidden (stronger than reference's skip-draw: measured 60 rAF/s visible → 0/s out of view) and resumes on visible, prefers-reduced-motion = one static frame + progress-change-only throttled redraws on deliberate scroll, full cleanup (removeEventListener/io.disconnect/cancelAnimationFrame), zero useState — no scroll-driven re-renders, no new runtime dependency
+   192→- home.tsx: hero section replaced with <PixelDitherHero> wrapping the existing headline/CTA content (motion entrance preserved); §5 reveals applied to sections that lacked them (past-highlights tiles, announcement cards) using the project's existing framer-motion whileInView system (IO one-shot, transform/opacity only, reduced-motion-aware) — ImpactStats/Leadership/Upcoming already had it
+   193→- Legibility design iteration: radial white overlay variant washed out the mark/arrow stages → replaced with a frosted glass panel (max-w-2xl, bg-white/70, backdrop-blur) on the content layer; cloud falloff (d*0.36+n*0.22+0.35) and mark radius (1.15) tuned so shapes read boldly around the panel; dark mode via dark:invert canvas + dark panel
+   194→- Deviation from PRD reference (bug fix): its progress formula (passed/(height+vh)) starts at 0.357 when pinned and never reaches 0/1 — replaced with correct pinned-scrub mapping -top/(height-vh), clamped
+   195→- Tests (§7): bun:test lacked DOM → added dev-only happy-dom + @happy-dom/global-registrator (registered per-file so the 34 server-side tests are untouched). tests/pixel-dither-hero.test.tsx: 6/6 pass — the 3 named PRD behaviors (static frame under reduced motion incl. no self-rescheduling loop; rAF fully stops when IO reports hidden and resumes; unmount removes scroll listener, disconnects IO, cancels pending rAF) + 3 pure-core tests (Bayer tiling/range, sampler bounds + morph endpoints, morphStage clamping). TS fix: hoisted function declarations defeat null-narrowing → arrow consts in dependency order
+   196→- Profiling (§7/§9) on live gateway page: scripted 22-step scroll through the full pinned range → PerformanceObserver longtask: 0 tasks (none ≥50ms); rAF-registration probe: 60/s hero visible vs 0/s scrolled out (~0 CPU elsewhere); tsc/eslint clean (bun:test TS2307 is the pre-existing family shared by all test files); zero console errors; mobile 390×844 verified (pattern + panel + sections below)
+   197→
+   198→Stage Summary:
+   199→- Files: src/features/landing/pixelDither.ts, src/features/landing/PixelDitherHero.tsx, src/spa/pages/public/home.tsx, tests/pixel-dither-hero.test.tsx, package.json (dev deps: happy-dom, @happy-dom/global-registrator)
+   200→- Hero is now a scroll-scrubbed 1-bit Bayer dither morph behind the copy; performance budget checklist §6 fully satisfied and empirically verified; §8 DoD met (morph smooth, zero long tasks, ~0 off-screen cost, reduced-motion static, text legible at every position)
+   201→- Screenshots: download/hero-g0.png (cloud), hero-g1.png (mark), hero-g2.png (arrow), hero-mobile.png, below-hero-mobile.png
+   202→- Reduced-motion verified via unit tests (harness cannot emulate the media query live) — flagged honestly
+   203→
+   204→---
+   205→Task ID: 10b
+   206→Agent: Z.ai (main)
+   207→Task: User design pivot on the landing hero — "instead of this background, add a white border with some border width so it looks clean" → replace the scroll-driven pixel-dither background with a clean framed hero.
+   208→
+   209→Work Log:
+   210→- Unwired PixelDitherHero from src/spa/pages/public/home.tsx (only import site); the dither feature module + its 6 tests stay in the repo (src/features/landing/, tests/pixel-dither-hero.test.tsx) for easy re-enable.
+   211→- Rebuilt hero as a framed panel: section px-4 pt-8 pb-16 → motion.div (same fade-up entrance, reduced-motion-aware) with min-h-[70vh] max-w-6xl rounded-[2.5rem] border-8 border-white bg-zinc-950 + hairline ring-1 ring-zinc-950/10 + shadow-xl (dark: bg-zinc-900, ring-white/10). Design rationale: a white border is invisible on a white page without contrast — the dark interior makes the requested white frame read clearly, and it bookends the existing dark Join CTA panel further down.
+   212→- Content adapted to dark surface: badge unchanged (light chip pops), "startups" now underlined (decoration-zinc-500/4px/offset-8) since text-primary is near-black and would vanish on dark, primary CTA inverted to bg-white text-zinc-950, outline CTA uses the Join-CTA's zinc-700 border pattern, copy/meta in zinc-400/500.
+   213→- Verified: eslint 0 problems on home.tsx; tsc 0 errors in touched file (pre-existing unrelated families untouched); browser via :81 gateway — desktop 1440×900 + mobile 390×844 screenshots (download/hero-framed-desktop.png, hero-framed-mobile.png), white frame visible, no overflow, zero console/page errors. Below-hero sections unaffected.
+   214→- Removed the 180vh pinned scroll driver from the page flow (no scroll animation anymore → normal document height).
+   215→
+   216→Stage Summary:
+   217→- Hero is now a clean dark framed panel with a thick white border; dither system parked but preserved (single import to restore).
+   218→- Files changed: src/spa/pages/public/home.tsx only.
+   219→
+   220→---
+   221→Task ID: 10c
+   222→Agent: Z.ai (main)
+   223→Task: User said "undo this change" — revert Task 10b's framed-panel hero back to the pixel-dither hero.
+   224→
+   225→Work Log:
+   226→- Reverted src/spa/pages/public/home.tsx to the exact pre-10b state: PixelDitherHero import + wrapper restored (text-primary "startups", muted-foreground copy, default/outline CTAs, 180vh pinned scroll driver back in flow).
+   227→- Verified: eslint 0 problems, tsc 0 errors in touched file; browser via :81 gateway — dither pattern renders and animates, frosted panel intact, zero console/page errors (download/hero-dither-restored.png).
+   228→- Task 10b's framed-panel design is fully retired (no leftover classes/markup); dither feature module + tests remain live as in Task 10.
+   229→
+   230→Stage Summary:
+   231→- Landing hero is back on the scroll-driven Bayer dither (cloud → mark → arrow); Task 10b change exists only in worklog history.
+   232→
+   233→---
+   234→Task ID: 11
+   235→Agent: Z.ai (main)
+   236→Task: Team page — members should show a profile photo, and clicking a member should lead to LinkedIn/GitHub links.
+   237→
+   238→Work Log:
+   239→- Audit: display layer already existed (avatars w/ initials fallback on team cards + member profile page; LinkedIn/GitHub link slots everywhere) and Profile model already had avatarUrl/linkedinUrl/githubUrl — the real gap was NO write path: no avatar field anywhere, socials only self-service. Photos/links never showed because nothing could set them.
+   240→- Schema/validations: profileUpdateSchema + avatarUrl (http(s):// or site-relative /path only — rendered into <img src>, so javascript:/data: rejected; XSS guard verified via API: javascript:alert(1) → 400 validation_error).
+   241→- API: workspace/profile PATCH now persists avatarUrl; control/members PATCH 'update' accepts avatarUrl/linkedinUrl/githubUrl on behalf of the member (same protocol sanitizer, audit metadata extended), GET select extended with the two social fields.
+   242→- UI: (1) Admin Control → Members → Edit dialog gained "Profile photo" (live preview + hint listing bundled paths) and LinkedIn/GitHub URL inputs; (2) member self-service My Profile gained the same "Profile photo" field with preview and sends avatarUrl on save; (3) team card avatar is now a button → member profile (like the name); LinkedIn/GitHub links on cards use lucide brand icons; member-profile SocialLink buttons show Linkedin/Github/Globe icons.
+   243→- Assets: generated 6 AI portrait avatars → public/avatars/member-1..6.png (served as static files; 200 via gateway) so admins/members can use /avatars/member-N.png without hunting for image URLs.
+   244→- Demo wiring via REAL admin PATCH (scripts/wire-demo-avatar.sh): @membertest1 (the public member) got /avatars/member-1.png + linkedin.com/in/demo-member + github.com/demo-member; test write on seed member reverted afterwards.
+   245→- Verified: eslint 0 problems on all 7 touched files; tsc 0 new errors (app.tsx member-profile TS2322 is the pre-existing lazyPage family from Task 8 — props signature unchanged); browser via :81 gateway — team card shows the photo + LinkedIn/GitHub icon links, clicking avatar/name → /#/members/membertest1 shows big photo + LinkedIn/GitHub buttons, admin Edit dialog shows all new fields pre-filled; zero console/page errors.
+   246→
+   247→Stage Summary:
+   248→- Photos + social links are now settable in two places (admin Edit dialog on behalf of a member; members' own My Profile) and render on team cards + public profiles.
+   249→- Files: src/lib/validations.ts, src/app/api/workspace/profile/route.ts, src/app/api/control/members/route.ts, src/spa/pages/control/members.tsx, src/spa/pages/workspace/profile.tsx, src/spa/pages/public/team.tsx, src/spa/pages/public/member-profile.tsx, public/avatars/*, scripts/wire-demo-avatar.sh
+   250→- Note: members without a photo still show clean initials fallback; LinkedIn/GitHub rows only render when set.
+   251→
