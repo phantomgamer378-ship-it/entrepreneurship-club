@@ -17,15 +17,7 @@ bun run dev                       # app on :3000
 cd mini-services/chat-service && bun install && bun run dev   # :3003
 ```
 
-### Demo accounts (development only — password `ClubDemo#2024`)
 
-| Email | Role |
-|---|---|
-| `superadmin@club.adypu.edu.in` | Super Admin (full control incl. roles) |
-| `president@club.adypu.edu.in` | Club President |
-| `advisor@club.adypu.edu.in` | Faculty Advisor (application reviewer) |
-| `lead.events@club.adypu.edu.in` | Club Lead |
-| `member@club.adypu.edu.in` | Member |
 
 Public site: `/#/` · Member workspace: `/#/workspace` · Admin: `/#/control/sign-in` (not linked from public nav).
 
