@@ -15,6 +15,7 @@ import { api, ApiClientError } from '@/spa/api/client'
 import { navigate } from '@/spa/router'
 
 const INTERESTS = [
+  'Training', 'Operational', 'Internship & Placement',
   'Product & UX', 'Engineering', 'Marketing & Growth', 'Finance & Ops',
   'Design', 'Content & Media', 'Not sure yet',
 ]

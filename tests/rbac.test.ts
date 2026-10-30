@@ -70,6 +70,8 @@ describe('role catalog invariants', () => {
       'cmo',
       'cto_operational',
       'cto',
+      'vice_president',
+      'coo',
       'club_president',
       'faculty_advisor',
       'admin',
@@ -78,13 +80,19 @@ describe('role catalog invariants', () => {
     expect(ROLE_KEYS.superAdmin).toBe('super_admin')
     expect(ROLE_KEYS.operationalCeo).toBe('operational_ceo')
     expect(ROLE_KEYS.ctoOperational).toBe('cto_operational')
+    expect(ROLE_KEYS.vicePresident).toBe('vice_president')
+    expect(ROLE_KEYS.coo).toBe('coo')
   })
-  test('operational_ceo and cto_operational hold admin level permissions', () => {
+  test('operational_ceo, cto_operational, vice_president and coo hold admin level permissions', () => {
     const admin = SYSTEM_ROLES.find((r) => r.key === 'admin')!
     const opCeo = SYSTEM_ROLES.find((r) => r.key === 'operational_ceo')!
     const ctoOp = SYSTEM_ROLES.find((r) => r.key === 'cto_operational')!
+    const vp = SYSTEM_ROLES.find((r) => r.key === 'vice_president')!
+    const coo = SYSTEM_ROLES.find((r) => r.key === 'coo')!
     expect(opCeo.permissions).toEqual(admin.permissions)
     expect(ctoOp.permissions).toEqual(admin.permissions)
+    expect(vp.permissions).toEqual(admin.permissions)
+    expect(coo.permissions).toEqual(admin.permissions)
   })
   test('executive lead roles hold club lead permissions', () => {
     const lead = SYSTEM_ROLES.find((r) => r.key === 'club_lead')!

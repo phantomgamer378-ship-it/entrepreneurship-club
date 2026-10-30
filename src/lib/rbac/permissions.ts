@@ -187,6 +187,18 @@ export const SYSTEM_ROLES: {
     permissions: CLUB_LEAD_PERMISSIONS,
   },
   {
+    key: 'vice_president',
+    name: 'Vice President',
+    description: 'Vice President; executive club operations and governance',
+    permissions: ADMIN_PERMISSIONS,
+  },
+  {
+    key: 'coo',
+    name: 'COO',
+    description: 'Chief Operating Officer; administrative and operational management',
+    permissions: ADMIN_PERMISSIONS,
+  },
+  {
     key: 'club_president',
     name: 'Club President',
     description: 'Student president; full club operations except system administration',

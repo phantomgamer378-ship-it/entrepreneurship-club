@@ -166,6 +166,8 @@ export const ROLE_KEYS = {
   cmo: 'cmo',
   ctoOperational: 'cto_operational',
   cto: 'cto',
+  vicePresident: 'vice_president',
+  coo: 'coo',
   clubPresident: 'club_president',
   facultyAdvisor: 'faculty_advisor',
   admin: 'admin',

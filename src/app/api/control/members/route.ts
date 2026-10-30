@@ -46,7 +46,7 @@ export async function GET(req: Request) {
         suspendedReason: true,
         lastLoginAt: true,
         createdAt: true,
-        profile: { select: { id: true, username: true, displayName: true, clubRoleLabel: true, isPublic: true, avatarUrl: true, linkedinUrl: true, githubUrl: true } },
+        profile: { select: { id: true, username: true, displayName: true, clubRoleLabel: true, isPublic: true, avatarUrl: true, linkedinUrl: true, githubUrl: true, interests: true } },
         userRoles: {
           select: { id: true, scope: true, expiresAt: true, role: { select: { id: true, key: true, name: true } }, assignedBy: true, assignedAt: true },
         },
@@ -71,6 +71,7 @@ export async function PATCH(req: Request) {
       avatarUrl?: string
       linkedinUrl?: string
       githubUrl?: string
+      interests?: string[]
     }
     if (!body.targetId || !body.action) return fail(400, 'targetId and action are required', 'missing_param')
     const target = await db.user.findUnique({ where: { id: body.targetId }, include: { userRoles: { select: { role: { select: { key: true } } } } } })
@@ -111,19 +112,20 @@ export async function PATCH(req: Request) {
         const t = (v ?? '').trim()
         return t && (t.startsWith('/') || /^https?:\/\/\S+$/i.test(t)) ? t : null
       }
-      const profileData: { isPublic?: boolean; clubRoleLabel?: string | null; avatarUrl?: string | null; linkedinUrl?: string | null; githubUrl?: string | null } = {}
+      const profileData: { isPublic?: boolean; clubRoleLabel?: string | null; avatarUrl?: string | null; linkedinUrl?: string | null; githubUrl?: string | null; interests?: string | null } = {}
       if (body.isPublic !== undefined) profileData.isPublic = body.isPublic
       if (body.clubRoleLabel !== undefined) profileData.clubRoleLabel = body.clubRoleLabel || null
       if (body.avatarUrl !== undefined) profileData.avatarUrl = safeUrl(body.avatarUrl)
       if (body.linkedinUrl !== undefined) profileData.linkedinUrl = safeUrl(body.linkedinUrl)
       if (body.githubUrl !== undefined) profileData.githubUrl = safeUrl(body.githubUrl)
+      if (body.interests !== undefined) profileData.interests = Array.isArray(body.interests) ? JSON.stringify(body.interests) : null
       if (Object.keys(profileData).length > 0) {
         const profile = await db.profile.findUnique({ where: { userId: target.id } })
         if (profile) {
           await db.profile.update({ where: { userId: target.id }, data: profileData })
         }
       }
-      await writeAudit({ event: 'admin.member_updated', actorId: actor, targetType: 'user', targetId: target.id, metadata: { fields: { fullName: body.fullName !== undefined, isPublic: body.isPublic, clubRoleLabel: body.clubRoleLabel, avatarUrl: body.avatarUrl !== undefined, linkedinUrl: body.linkedinUrl !== undefined, githubUrl: body.githubUrl !== undefined } } })
+      await writeAudit({ event: 'admin.member_updated', actorId: actor, targetType: 'user', targetId: target.id, metadata: { fields: { fullName: body.fullName !== undefined, isPublic: body.isPublic, clubRoleLabel: body.clubRoleLabel, avatarUrl: body.avatarUrl !== undefined, linkedinUrl: body.linkedinUrl !== undefined, githubUrl: body.githubUrl !== undefined, interests: body.interests !== undefined } } })
       return ok({ ok: true })
     }
 

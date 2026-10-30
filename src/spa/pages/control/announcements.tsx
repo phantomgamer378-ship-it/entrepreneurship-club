@@ -143,7 +143,7 @@ export default function ControlAnnouncements() {
                     <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                       <SelectTrigger aria-label="Category"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {['general', 'event', 'achievement', 'opportunity', 'urgent'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        {['general', 'training', 'operational', 'internship_placement', 'event', 'achievement', 'opportunity', 'urgent'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>

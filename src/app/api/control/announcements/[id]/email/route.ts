@@ -38,6 +38,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       'cmo',
       'cto_operational',
       'cto',
+      'vice_president',
+      'coo',
       'club_president',
       'faculty_advisor',
       'admin',

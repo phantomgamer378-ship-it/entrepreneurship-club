@@ -26,6 +26,7 @@ export async function GET(req: Request) {
               { username: { contains: q } },
               { clubRoleLabel: { contains: q } },
               { bio: { contains: q } },
+              { interests: { contains: q } },
             ],
           }
         : {}),

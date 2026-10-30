@@ -20,7 +20,7 @@ import { useAuth } from '@/spa/stores/auth'
 type Member = {
   id: string; email: string; fullName: string; isActive: boolean; suspendedAt: string | null
   suspendedReason: string | null; lastLoginAt: string | null; createdAt: string
-  profile: { id: string; username: string; displayName: string; clubRoleLabel: string | null; isPublic: boolean; avatarUrl: string | null; linkedinUrl: string | null; githubUrl: string | null } | null
+  profile: { id: string; username: string; displayName: string; clubRoleLabel: string | null; isPublic: boolean; avatarUrl: string | null; linkedinUrl: string | null; githubUrl: string | null; interests?: string | string[] | null } | null
   userRoles: { id: string; scope: string; expiresAt: string | null; assignedBy: string | null; assignedAt: string; role: { id: string; key: string; name: string } }[]
 }
 type RoleDef = { id: string; key: string; name: string; isSystem: boolean }
@@ -39,6 +39,7 @@ export default function ControlMembers() {
   const [editAvatar, setEditAvatar] = useState('')
   const [editLinkedin, setEditLinkedin] = useState('')
   const [editGithub, setEditGithub] = useState('')
+  const [editInterests, setEditInterests] = useState<string[]>([])
   const [assignRole, setAssignRole] = useState('')
   const [assignScope, setAssignScope] = useState('*')
   // PRD §8 — Add Member dialog (members.create; Super-Admin-exclusive).
@@ -109,6 +110,7 @@ export default function ControlMembers() {
         targetId: editTarget.id, action: 'update',
         fullName: editName, clubRoleLabel: editLabel, isPublic: editPublic,
         avatarUrl: editAvatar, linkedinUrl: editLinkedin, githubUrl: editGithub,
+        interests: editInterests,
       })
       toast({ title: 'Member updated' })
       setEditTarget(null)
@@ -201,12 +203,49 @@ export default function ControlMembers() {
                         </Badge>
                       )) : <span className="text-xs text-muted-foreground">No roles assigned</span>}
                     </div>
+                    {/* Tags */}
+                    {(() => {
+                      const tags: string[] = Array.isArray(m.profile?.interests)
+                        ? (m.profile.interests as string[])
+                        : typeof m.profile?.interests === 'string'
+                          ? (() => { try { return JSON.parse(m.profile.interests) } catch { return [] } })()
+                          : []
+                      if (!tags.length) return null
+                      return (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span className="text-[11px] text-muted-foreground">Tags:</span>
+                          {tags.map((t) => (
+                            <span key={t} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => { setRoleTarget(m); setAssignRole('') }}>
                       <ShieldPlus className="mr-1 h-3.5 w-3.5" aria-hidden /> Roles
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { setEditTarget(m); setEditName(m.fullName); setEditLabel(m.profile?.clubRoleLabel ?? ''); setEditPublic(m.profile?.isPublic ?? false); setEditAvatar(m.profile?.avatarUrl ?? ''); setEditLinkedin(m.profile?.linkedinUrl ?? ''); setEditGithub(m.profile?.githubUrl ?? '') }}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditTarget(m)
+                        setEditName(m.fullName)
+                        setEditLabel(m.profile?.clubRoleLabel ?? '')
+                        setEditPublic(m.profile?.isPublic ?? false)
+                        setEditAvatar(m.profile?.avatarUrl ?? '')
+                        setEditLinkedin(m.profile?.linkedinUrl ?? '')
+                        setEditGithub(m.profile?.githubUrl ?? '')
+                        const tags: string[] = Array.isArray(m.profile?.interests)
+                          ? (m.profile.interests as string[])
+                          : typeof m.profile?.interests === 'string'
+                            ? (() => { try { return JSON.parse(m.profile.interests) } catch { return [] } })()
+                            : []
+                        setEditInterests(tags)
+                      }}
+                    >
                       <UserCog className="mr-1 h-3.5 w-3.5" aria-hidden /> Edit
                     </Button>
                     {m.suspendedAt ? (
@@ -365,6 +404,39 @@ export default function ControlMembers() {
                 <Label htmlFor="em-github">GitHub URL</Label>
                 <Input id="em-github" value={editGithub} onChange={(e) => setEditGithub(e.target.value)} placeholder="https://github.com/…" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Tags / Functional Areas</Label>
+                <span className="text-xs text-muted-foreground">Click a pill to toggle</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {['Training', 'Operational', 'Internship & Placement'].map((tag) => {
+                  const active = editInterests.includes(tag)
+                  return (
+                    <Badge
+                      key={tag}
+                      variant={active ? 'default' : 'outline'}
+                      className="cursor-pointer select-none text-xs"
+                      onClick={() => {
+                        if (active) {
+                          setEditInterests(editInterests.filter((t) => t !== tag))
+                        } else {
+                          setEditInterests([...editInterests, tag])
+                        }
+                      }}
+                    >
+                      {active ? `✓ ${tag}` : `+ ${tag}`}
+                    </Badge>
+                  )
+                })}
+              </div>
+              <Input
+                value={editInterests.join(', ')}
+                onChange={(e) => setEditInterests(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+                placeholder="Training, Operational, Internship & Placement, startups..."
+                className="text-xs"
+              />
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>

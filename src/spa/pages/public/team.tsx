@@ -67,7 +67,7 @@ export default function TeamPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {['', 'President', 'Faculty Advisor', 'Events Lead', 'Member'].map((r) => (
+          {['', 'President', 'Vice President', 'COO', 'Operational CEO', 'Events Lead', 'Member'].map((r) => (
             <Button
               key={r || 'all'}
               size="sm"

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/spa/components/shared'
 import { api } from '@/spa/api/client'
@@ -104,12 +105,36 @@ export default function WorkspaceProfile() {
               <Textarea id="pf-bio" value={form.bio ?? ''} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={4} maxLength={2000} placeholder="Tell the club about yourself…" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="pf-interests">Interests (comma separated)</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="pf-interests">Tags / Areas of Interest</Label>
+                <span className="text-xs text-muted-foreground">Click a pill to toggle</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {['Training', 'Operational', 'Internship & Placement'].map((tag) => {
+                  const current = form.interests ?? []
+                  const active = current.includes(tag)
+                  return (
+                    <Badge
+                      key={tag}
+                      variant={active ? 'default' : 'outline'}
+                      className="cursor-pointer select-none text-xs"
+                      onClick={() => {
+                        const updated = active
+                          ? current.filter((t) => t !== tag)
+                          : [...current, tag]
+                        setForm({ ...form, interests: updated })
+                      }}
+                    >
+                      {active ? `✓ ${tag}` : `+ ${tag}`}
+                    </Badge>
+                  )
+                })}
+              </div>
               <Input
                 id="pf-interests"
                 value={(form.interests ?? []).join(', ')}
                 onChange={(e) => setForm({ ...form, interests: e.target.value.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 15) })}
-                placeholder="startups, fintech, design"
+                placeholder="Training, Operational, Internship & Placement, startups..."
               />
             </div>
           </CardContent>

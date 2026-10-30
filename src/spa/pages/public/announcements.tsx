@@ -18,7 +18,7 @@ type AnnouncementCard = {
 }
 
 const PAGE_SIZE = 9
-const CATEGORIES = ['', 'general', 'event', 'achievement', 'opportunity', 'urgent'] as const
+const CATEGORIES = ['', 'general', 'training', 'operational', 'internship_placement', 'event', 'achievement', 'opportunity', 'urgent'] as const
 
 export default function AnnouncementsPage() {
   const [q, setQ] = useState('')
